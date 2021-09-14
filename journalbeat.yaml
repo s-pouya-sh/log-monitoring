@@ -1,0 +1,23 @@
+journalbeat.inputs:
+- paths: []
+  seek: cursor
+  processors:
+  - drop_event:
+      when:
+        not:
+          has_fields: ['container.name']
+  - drop_fields:
+      fields: ["journald.process.name", "journald.process.executable", "journald.process.command_line", "journald.process.capabilites", "journald.pid", "journald.host.boot_id","user.id", "user.group.id", "systemd.unit", "systemd.transport", "systemd.slice", "systemd.invocation_id", "systemd.cgroup", "syslog.identifier", "process.pid", "process.command_line", "process.args_count", "process.args", "journald.uid", "journald.custom.selinux_context", "agent.ephemeral_id", "agent.hostname", "agent.id", "agent.name", "agent.type", "agent.version", "container.id_truncated", "ecs.version", "host.id", "journald.custom.image_name", "journald.gid"]
+      ignore_missing: false
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+
+journalbeat:
+  write_cursor_state: true
+  cursor_state_file: /config/.journalbeat-cursor-state
+  cursor_flush_period: 5s
+#  pending_queue.file: /config/.journalbeat-pending-queue
+#  pending_queue.flush_period: 1s
+#  pending_queue.completed_queue_size: 8192
