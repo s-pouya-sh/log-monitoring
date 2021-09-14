@@ -1,0 +1,132 @@
+version: '3'
+services:
+  odfe-node1:
+    image: amazon/opendistro-for-elasticsearch:1.13.2
+    user: root
+    environment:
+      - cluster.name=odfe-cluster
+      - node.name=odfe-node1
+      - discovery.seed_hosts=odfe-node1,odfe-node2
+      - cluster.initial_master_nodes=odfe-node1,odfe-node2
+      - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536 # maximum number of open files for the Elasticsearch user, set to at least 65536 on modern systems
+        hard: 65536
+    volumes:
+      - odfe-data1:/usr/share/elasticsearch/data
+      - /mnt/opendistro/elasticsearch/config.yaml:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/config.yml
+    ports:
+      - 9201:9200
+      - 9601:9600 # required for Performance Analyzer
+    networks:
+      - odfe-net
+  odfe-node2:
+    image: amazon/opendistro-for-elasticsearch:1.13.2
+    user: root
+    environment:
+      - cluster.name=odfe-cluster
+      - node.name=odfe-node2
+      - discovery.seed_hosts=odfe-node1,odfe-node2
+      - cluster.initial_master_nodes=odfe-node1,odfe-node2
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - odfe-data1:/usr/share/elasticsearch/data
+      - /mnt/opendistro/elasticsearch/config.yaml:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/config.yml
+    networks:
+      - odfe-net
+
+  kibana:
+    image: amazon/opendistro-for-elasticsearch-kibana:1.13.2
+    ports:
+      - 80:5601
+    environment:
+      ELASTICSEARCH_URL: https://odfe-node1:9200
+      ELASTICSEARCH_HOSTS: https://odfe-node1:9200
+    volumes:
+      - /mnt/opendistro/kibana/kibana.yaml:/usr/share/kibana/config/kibana.yml
+    networks:
+      - odfe-net
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash-oss:7.10.2
+    user: root
+    environment:
+        LS_JAVA_OPTS: "-Xms1g -Xmx1g"
+    networks:
+      - odfe-net
+    volumes:
+      - "/mnt/opendistro/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf"
+  security:
+    container_name: keycloak
+    image: jboss/keycloak
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+      - 8443:8443
+    volumes:
+      - "/mnt/keycloak/tls/:/etc/x509/https"
+    environment:
+      KEYCLOAK_HTTPS_PORT: 8443
+      KEYCLOAK_HOSTNAME: HOSTNAME
+      DB_VENDOR: MYSQL
+      DB_ADDR: mysql
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
+      DB_PASSWORD: PASSWORD
+      KEYCLOAK_USER: USER
+      KEYCLOAK_PASSWORD: PASSWORD
+    networks:
+    - odfe-net
+  mysql:
+    container_name: mysql
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: PASSWORD
+      MYSQL_DATABASE: keycloak
+      MYSQL_USER: keycloak
+      MYSQL_PASSWORD: PASSWORD
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+    - odfe-net
+
+  myapp:
+    container_name: openidApp
+    image: myapp:2
+    ports:
+      - 8000:8000
+    networks:
+      - odfe-net
+
+  # proxyserver:
+  #   container_name: nginx
+  #   image: nginx
+  #     ports:
+  #       - 80:80
+  #       - 443:443
+  #   networks:
+  #     - odfe-net
+  #   volumes:
+  #     - /mnt/opendistro/nginx/nginx.conf:/nginx.conf
+volumes:
+    odfe-data1:
+    odfe-data2:
+    mysql-data:
+      driver: local
+networks:
+  odfe-net:
+
+      - /mnt/keycloak/themes/login:/opt/jboss/keycloak/themes/blockchain/login
