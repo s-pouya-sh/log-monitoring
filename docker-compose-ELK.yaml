@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  elasticsearch:
+    image: elasticsearch:7.12.0
+    user: root
+    environment:
+      ES_JAVA_OPTS: "-Xmx1g -Xms1g"
+      ELASTIC_PASSWORD: PASSWORD
+      discovery.type: single-node
+    volumes:
+      - "/mnt/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
+#      - "/mnt/elasticsearch/data:/usr/share/elasticsearch/data"
+    logging:
+      driver: "journald"
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+# why 4g ram?
+  logstash:
+    image: logstash:7.12.0
+    environment:
+      LS_JAVA_OPTS: "-Xms1g -Xmx1g"
+   # configs:
+   #   - source: logstash_pipeline
+   #     target: /usr/share/logstash/pipeline/logstash.conf
+     # - source: logstash_config
+     #   target: /usr/share/logstash/config/logstash.yml
+    volumes:
+      - "/mnt/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml"
+      - "/mnt/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf"
+    logging:
+      driver: "journald"
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+
+  journalbeat:
+    image: docker.elastic.co/beats/journalbeat:7.12.0
+    user: root
+    volumes:
+      - "/var/log/journal:/var/log/journal"
+      - "/etc/machine-id:/etc/machine-id"
+      - "/run/systemd:/run/systemd"
+      - "/etc/hostname:/etc/hostname:ro"
+      - "/mnt/journalbeat/journalbeat.yaml:/usr/share/journalbeat/journalbeat.yml"
+      - "/mnt/journalbeat/config:/config"
+    deploy:
+      mode: global
+    logging:
+      driver: "journald"
+
+  kibana:
+    image: kibana:7.12.0
+    ports:
+      - "5601:5601"
+    configs:
+      - source: kibana_config
+        target: /usr/share/kibana/config/kibana.yml
+    logging:
+      driver: "journald"
+
+configs:
+#  logstash_pipeline:
+#    file: /mnt/logstash/logstash.conf
+  kibana_config:
+    file: /mnt/kibana/kibana.yml
+#  logstash_config:
+#    file: /mnt/logstash/logstash.yml
+
